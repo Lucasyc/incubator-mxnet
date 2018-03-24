@@ -39,6 +39,18 @@ namespace storage {
 /*!
  * \brief GPU storage implementation.
  */
+
+void getMemoryInfo(char c) {
+  size_t free_byte, total_byte;
+  cudaError_t err = cudaMemGetInfo(&free_byte, &total_byte);
+  if (err != cudaSuccess) {
+    LOG(FATAL) << "cudaMemGetInfo fails!";
+    exit(1);
+  }
+  string tag = c == 'a' ? "[Alloc]" : "[Free]";
+  LOG(INFO) << tag << "available " <<  total_byte - free_byte << " Bytes";
+}  
+
 class GPUDeviceStorage {
  public:
   /*!
@@ -63,6 +75,9 @@ inline void* GPUDeviceStorage::Alloc(size_t size) {
   cudaError_t e = cudaMalloc(&ret, size);
   if (e != cudaSuccess && e != cudaErrorCudartUnloading)
     LOG(FATAL) << "CUDA: " << cudaGetErrorString(e);
+  LOG(INFO) << "Try to alocate size " << size;
+  getMemoryInfo('a');
+
 #else   // MXNET_USE_CUDA
   LOG(FATAL) << "Please compile with CUDA enabled";
 #endif  // MXNET_USE_CUDA
@@ -80,6 +95,7 @@ inline void GPUDeviceStorage::Free(void* ptr) {
   if (err != cudaSuccess && err != cudaErrorCudartUnloading) {
     LOG(FATAL) << "CUDA: " << cudaGetErrorString(err);
   }
+  getMemoryInfo('f');
 #else   // MXNET_USE_CUDA
   LOG(FATAL) << "Please compile with CUDA enabled";
 #endif  // MXNET_USE_CUDA
