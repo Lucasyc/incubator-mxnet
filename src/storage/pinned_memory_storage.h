@@ -57,6 +57,9 @@ inline void* PinnedMemoryStorage::Alloc(size_t size) {
 #endif
   // make the memory available across all devices
   CUDA_CALL(cudaHostAlloc(&ret, size, cudaHostAllocPortable));
+
+  // mxnet::storage::getMemoryInfo('c', 'i');
+
   return ret;
 }
 
@@ -69,6 +72,7 @@ inline void PinnedMemoryStorage::Free(void* ptr) {
   if (err != cudaSuccess && err != cudaErrorCudartUnloading) {
     LOG(FATAL) << "CUDA: " << cudaGetErrorString(err);
   }
+  // mxnet::storage::getMemoryInfo('c', 'i');
 }
 
 }  // namespace storage

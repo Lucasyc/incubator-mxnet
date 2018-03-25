@@ -40,17 +40,6 @@ namespace storage {
  * \brief GPU storage implementation.
  */
 
-void getMemoryInfo(char c) {
-  size_t free_byte, total_byte;
-  cudaError_t err = cudaMemGetInfo(&free_byte, &total_byte);
-  if (err != cudaSuccess) {
-    LOG(FATAL) << "cudaMemGetInfo fails!";
-    exit(1);
-  }
-  string tag = c == 'a' ? "[Alloc]" : "[Free]";
-  LOG(INFO) << tag << "available " <<  total_byte - free_byte << " Bytes";
-}  
-
 class GPUDeviceStorage {
  public:
   /*!

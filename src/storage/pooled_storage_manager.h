@@ -34,12 +34,13 @@
 #include <vector>
 #include <mutex>
 #include <new>
+#include <time.h>
 #include "./storage_manager.h"
 #include "../common/cuda_utils.h"
 
-
 namespace mxnet {
 namespace storage {
+static clock_t base_time = clock();
 
 #if MXNET_USE_CUDA
 /*!
@@ -77,7 +78,24 @@ class GPUPooledStorageManager final : public StorageManager {
       LOG(FATAL) << "CUDA: " << cudaGetErrorString(err);
     }
     used_memory_ -= size;
+    freeMemoryInPool -= size;
+    getMemoryInfo('f', 'o', freeMemoryInPool, base_time);
   }
+
+  void getMemoryInfo(char c, char p, size_t freeMeme, clock_t base_time, size_t free = true) {
+    size_t free_byte, total_byte;
+    cudaError_t err = cudaMemGetInfo(&free_byte, &total_byte);
+    if (err != cudaSuccess) {
+      LOG(INFO) << "cudaMemGetInfo fails!";
+      return;
+    }
+    std::string tag = c == 'a' ? "[Alloc] " : "[Free] ";
+    std::string from = p == 'i' ? "[pinned] " : "[pooled] ";
+    if (free)
+      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ - freeMeme << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
+    else
+      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
+  } 
 
  private:
   void ReleaseAll();
@@ -88,6 +106,7 @@ class GPUPooledStorageManager final : public StorageManager {
   // number of devices
   const int NDEV = 32;
   // memory pool
+  size_t freeMemoryInPool = 0;
   std::unordered_map<size_t, std::vector<void*>> memory_pool_;
   DISALLOW_COPY_AND_ASSIGN(GPUPooledStorageManager);
 };  // class GPUPooledStorageManager
@@ -111,10 +130,12 @@ void GPUPooledStorageManager::Alloc(Storage::Handle* handle) {
     handle->dptr = ret;
   } else {
     auto&& reuse_pool = reuse_it->second;
+    freeMemoryInPool -= size;
     auto ret = reuse_pool.back();
     reuse_pool.pop_back();
     handle->dptr = ret;
   }
+  getMemoryInfo('a', 'o', freeMemoryInPool, base_time);
 }
 
 void GPUPooledStorageManager::Free(Storage::Handle handle) {
@@ -122,18 +143,22 @@ void GPUPooledStorageManager::Free(Storage::Handle handle) {
   size_t size = handle.size + NDEV;
   auto&& reuse_pool = memory_pool_[size];
   reuse_pool.push_back(handle.dptr);
+  freeMemoryInPool += size;
+  getMemoryInfo('f', 'o', freeMemoryInPool, base_time);
 }
 
 void GPUPooledStorageManager::ReleaseAll() {
   for (auto&& i : memory_pool_) {
     for (auto&& j : i.second) {
       Storage::Handle handle;
+      freeMemoryInPool -= i.first;
       handle.dptr = j;
       handle.size = i.first - NDEV;
       DirectFreeNoLock(handle);
     }
   }
   memory_pool_.clear();
+  getMemoryInfo('f', 'o', freeMemoryInPool, base_time);
 }
 
 #endif  // MXNET_USE_CUDA

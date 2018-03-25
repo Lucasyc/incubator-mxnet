@@ -33,6 +33,10 @@
 
 namespace mxnet {
 
+void printInfo(std::string tag, std::string content) {
+  LOG(INFO) << tag << " " << content;
+}
+
 // consider change storage as a pure abstract class
 class StorageImpl : public Storage {
  public:
@@ -60,8 +64,10 @@ class StorageImpl : public Storage {
       }
         break;
       case Context::kGPU:
+        // printInfo("[INFO]", "kGPU");
       case Context::kCPUPinned: {
 #if MXNET_USE_CUDA
+          // printInfo("[INFO]", "kCPUPinned, cuda");
           if (num_gpu_device > 0) {
             CUDA_CALL(cudaSetDevice(ctx.real_dev_id()));
           }
