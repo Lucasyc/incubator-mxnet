@@ -82,6 +82,14 @@ class GPUPooledStorageManager final : public StorageManager {
     getMemoryInfo('f', 'o', freeMemoryInPool, base_time);
   }
 
+  size_t getMemorySizeInPool() {
+    size_t availableMemory = 0;
+    for (auto it = memory_pool_.begin(); it != memory_pool_.end(); ++it) {
+      availableMemory += it->second.size() * it->first;
+    }
+    return availableMemory;
+  }
+
   void getMemoryInfo(char c, char p, size_t freeMeme, clock_t base_time, size_t free = true) {
     size_t free_byte, total_byte;
     cudaError_t err = cudaMemGetInfo(&free_byte, &total_byte);
@@ -91,10 +99,11 @@ class GPUPooledStorageManager final : public StorageManager {
     }
     std::string tag = c == 'a' ? "[Alloc] " : "[Free] ";
     std::string from = p == 'i' ? "[pinned] " : "[pooled] ";
+    size_t availableMemory = getMemorySizeInPool();
     if (free)
-      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ - freeMeme << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
+      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ - availableMemory << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
     else
-      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
+      LOG(INFO) << "\t" << tag << from << "[used] " <<  used_memory_ - availableMemory << " [Bytes] " << "[at] " << double(clock() - base_time) / CLOCKS_PER_SEC;
   } 
 
  private:
